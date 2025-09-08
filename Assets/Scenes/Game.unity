@@ -931,7 +931,7 @@ MonoBehaviour:
       Offset: {x: 0, y: 0}
   CenterOnActivate: 1
   TargetOffset: {x: 0, y: 0.05, z: 0}
-  Damping: {x: 0.5, y: 0.5}
+  Damping: {x: 0.15, y: 0.3}
   Lookahead:
     Enabled: 0
     Time: 0
@@ -951,11 +951,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   TrackerSettings:
     BindingMode: 4
-    PositionDamping: {x: 0.2, y: 0.2, z: 0.5}
+    PositionDamping: {x: 0.15, y: 0.5, z: 0.5}
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
     QuaternionDamping: 1
-  FollowOffset: {x: 0, y: 1.6, z: -3.5}
+  FollowOffset: {x: 0, y: 0, z: 0}
 --- !u!114 &594220011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -976,7 +976,7 @@ MonoBehaviour:
   m_StreamingVersion: 20241001
   m_LegacyPriority: 0
   Target:
-    TrackingTarget: {fileID: 607794993}
+    TrackingTarget: {fileID: 1747957800}
     LookAtTarget: {fileID: 1475900361}
     CustomLookAtTarget: 1
   Lens:
@@ -1007,8 +1007,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 594220006}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.2615077, y: 0.060257692, z: 0.01636024, w: 0.9631797}
-  m_LocalPosition: {x: -0.7, y: 1.373, z: -190.246}
+  m_LocalRotation: {x: -0.3719007, y: 0.35754055, z: 0.15792672, w: 0.8419702}
+  m_LocalPosition: {x: -0.7, y: -0.001, z: -186.743}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1041,7 +1041,7 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 1
+  m_UseGravity: 0
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
@@ -1540,6 +1540,7 @@ MonoBehaviour:
   forceText: {fileID: 0}
   autoResetDelay: 4
   fallY: -5
+  holdBallAtSpawn: 1
 --- !u!114 &1148892808
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1655,8 +1656,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1180831781}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.26150772, y: 0.0602577, z: 0.016360242, w: 0.9631797}
-  m_LocalPosition: {x: -0.7, y: 1.373, z: -190.246}
+  m_LocalRotation: {x: -0.3719007, y: 0.35754055, z: 0.1579267, w: 0.8419702}
+  m_LocalPosition: {x: -0.7, y: -0.001, z: -186.743}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2457,8 +2458,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54eb64abf03744bf78f3dd3a25d7c0e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ball: {fileID: 0}
-  hoopTarget: {fileID: 0}
+  ball: {fileID: 607794993}
+  hoopTarget: {fileID: 1475900361}
   back: 3.5
   height: 1.6
 --- !u!4 &1747957800
