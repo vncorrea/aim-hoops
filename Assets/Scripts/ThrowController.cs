@@ -22,7 +22,9 @@ public class ThrowController : MonoBehaviour
     [Header("Reset")]
     [SerializeField] private float autoResetDelay = 4.0f;
     [SerializeField] private float fallY = -5f;
-    [SerializeField] private bool holdBallAtSpawn = true;
+
+    [SerializeField] private Transform hoopTarget;  // arraste o HoopTarget no Inspector
+    [SerializeField] private bool invertYaw = false;
 
     private float charge01; // 0..1
     private bool charging;
@@ -70,42 +72,58 @@ public class ThrowController : MonoBehaviour
     void ReleaseShot()
     {
         if (!charging || shotInProgress) return;
+
         charging = false;
-
-        ballRb.isKinematic = false;
-        ballRb.useGravity = true;
-        ballRb.constraints = RigidbodyConstraints.None; // libera pra física agir
-
-        float force = Mathf.Lerp(minForce, maxForce, charge01);
-        Shoot(force);
-        UpdateForceText(0f);
-    }
-
-    void Shoot(float force)
-    {
         shotInProgress = true;
 
-        // Direção a partir dos sliders (yaw = esquerda/direita, pitch = inclinação)
-        float yaw = yawSlider ? yawSlider.value : 0f;       // -45..45
-        float pitch = pitchSlider ? pitchSlider.value : 35; // 15..60 padrão 35
+        // Usa o charge atual (NÃO zera antes!)
+        float force = Mathf.Lerp(minForce, maxForce, charge01);
 
-        // Constrói direção rotacionando o vetor forward pela inclinação e yaw
-        Quaternion rot = Quaternion.Euler(-pitch, yaw, 0f);
+        // Prepara o corpo para receber o impulso
+        ballRb.isKinematic = false;
+        ballRb.useGravity = true;
+        ballRb.constraints = RigidbodyConstraints.None;
+
+        // Calcula direção: base olhando pro aro no plano XZ, com ajustes de yaw/pitch
+        float yaw = yawSlider ? yawSlider.value : 0f;
+        float pitch = pitchSlider ? pitchSlider.value : 35f;
+
+        Vector3 toHoopFlat = hoopTarget
+            ? Vector3.ProjectOnPlane(hoopTarget.position - ballRb.position, Vector3.up).normalized
+            : Vector3.forward;
+
+        if (toHoopFlat.sqrMagnitude < 1e-6f) toHoopFlat = Vector3.forward;
+
+        float yawUsed = invertYaw ? -yaw : yaw;
+        Quaternion rot = Quaternion.LookRotation(toHoopFlat, Vector3.up) * Quaternion.Euler(-pitch, yawUsed, 0f);
         Vector3 dir = rot * Vector3.forward;
 
-        // Zera estado da bola e aplica impulso
+        // (opcional) reposiciona no spawn para tiros consistentes
+        ballRb.transform.SetPositionAndRotation(ballSpawn.position, ballSpawn.rotation);
+
+        // Zera velocidades (agora pode, pois não é kinematic)
         ballRb.linearVelocity = Vector3.zero;
         ballRb.angularVelocity = Vector3.zero;
+
+        // Impulso
+        Debug.DrawRay(ballRb.position, dir.normalized * 3f, Color.red, 2f);
         ballRb.AddForce(dir.normalized * force, ForceMode.Impulse);
 
-        // Agenda um reset brando
+        // Limpa UI/estado
+        UpdateForceText(0f);
+        charge01 = 0f;
+
+        // Agenda reset
         StartCoroutine(ResetAfterDelay());
     }
 
     IEnumerator ResetAfterDelay()
     {
         yield return new WaitForSeconds(autoResetDelay);
-        // Só reseta se a bola estiver quase parada ou muito longe
+
+        // Só reseta se a bola estiver quase parada ou tiver caído
+        if (!ballRb) yield break;
+
         if (ballRb.linearVelocity.magnitude < 0.3f || ballRb.transform.position.y < fallY)
         {
             RespawnBall();
@@ -116,12 +134,22 @@ public class ThrowController : MonoBehaviour
     void RespawnBall()
     {
         if (!ballRb || !ballSpawn) return;
-        ballRb.isKinematic = true;
+
+        // Garanta que NÃO está kinematic antes de mexer em velocidades
+        ballRb.isKinematic = false;
         ballRb.useGravity = false;
-        ballRb.constraints = RigidbodyConstraints.FreezeRotation; // opcional: também FreezePosition para segurar 100%
-        ballRb.transform.SetPositionAndRotation(ballSpawn.position, ballSpawn.rotation);
+        ballRb.constraints = RigidbodyConstraints.FreezeRotation;
+
+        // Zera velocidades
         ballRb.linearVelocity = Vector3.zero;
         ballRb.angularVelocity = Vector3.zero;
+
+        // Move para o ponto de spawn
+        ballRb.transform.SetPositionAndRotation(ballSpawn.position, ballSpawn.rotation);
+
+        // Agora sim, deixa kinematic para "ficar paradinha"
+        ballRb.isKinematic = true;
+        ballRb.Sleep(); // opcional, garante repouso
     }
 
     void UpdateForceText(float f)
