@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections;
 
+[RequireComponent(typeof(LineRenderer))]
 public class ThrowController : MonoBehaviour
 {
     [Header("Refs")]
@@ -12,23 +13,50 @@ public class ThrowController : MonoBehaviour
     [SerializeField] private ChargeButton chargeButton;
     [SerializeField] private Rigidbody ballRb;
     [SerializeField] private Transform ballSpawn;
+    [SerializeField] private Transform hoopTarget;  // opcional p/ mirar no aro
 
     [Header("Força")]
-    [SerializeField] private float minForce = 6f;
-    [SerializeField] private float maxForce = 22f;
-    [SerializeField] private float chargeTime = 1.4f; // seg para ir 0→100%
-    [SerializeField] private TMP_Text forceText;      // opcional
+    [SerializeField] private float minForce = 1f;
+    [SerializeField] private float maxForce = 100f;
+    [SerializeField] private float chargeTime = 1.4f;
+    [SerializeField] private TMP_Text forceText;
 
     [Header("Reset")]
     [SerializeField] private float autoResetDelay = 4.0f;
     [SerializeField] private float fallY = -5f;
 
-    [SerializeField] private Transform hoopTarget;  // arraste o HoopTarget no Inspector
-    [SerializeField] private bool invertYaw = false;
+    [Header("Mira & Debug")]
+    [SerializeField] private bool useHoopAim = true;   // mira em direção ao aro no plano XZ
+    [SerializeField] private bool invertYaw = false;   // inverte sentido do yaw
+    [SerializeField] private bool showDebug = true;    // mostra linhas
+    [SerializeField] private float dirLineLength = 2.5f;
+
+    [Header("Preview Trajetória")]
+    [SerializeField] private bool showTrajectory = true;
+    [SerializeField] private int trajSteps = 40;
+    [SerializeField] private float trajTimeStep = 0.05f;
+
+    // Linhas
+    [SerializeField] private LineRenderer dirLine;     // seta de direção
+    [SerializeField] private LineRenderer trajLine;    // trajetória
+
+    [SerializeField] float yawMin = -60f, yawMax = 60f;
+    [SerializeField] float pitchMin = 0f, pitchMax = 85f;
 
     private float charge01; // 0..1
     private bool charging;
     private bool shotInProgress;
+
+    void Awake()
+    {
+        // Setup automático dos LineRenderers (se não arrastar no Inspector)
+        if (dirLine == null) dirLine = CreateLine("_DirLine", 0.035f);
+        if (trajLine == null) trajLine = CreateLine("_TrajLine", 0.022f);
+        // cores básicas diferentes pra distinguir
+        dirLine.material.color = new Color(1f, 0.2f, 0.2f, 1f);   // vermelho
+        trajLine.material.color = new Color(0.2f, 0.6f, 1f, 1f);  // azul
+        ClearLines();
+    }
 
     void Start()
     {
@@ -43,10 +71,18 @@ public class ThrowController : MonoBehaviour
 
     void Update()
     {
-        // Se a bola cair muito, reseta.
         if (ballRb && ballRb.transform.position.y < fallY && !charging)
         {
             RespawnBall();
+        }
+
+        // Enquanto carrega, atualiza a seta/preview com a força atual
+        if (charging && showDebug)
+        {
+            var forceNow = Mathf.Lerp(minForce, maxForce, charge01);
+            Vector3 dir = ComputeShotDirection(out Quaternion shotRot);
+            DrawDirection(dir);
+            if (showTrajectory) DrawTrajectory(dir, forceNow);
         }
     }
 
@@ -76,38 +112,34 @@ public class ThrowController : MonoBehaviour
         charging = false;
         shotInProgress = true;
 
-        // Usa o charge atual (NÃO zera antes!)
         float force = Mathf.Lerp(minForce, maxForce, charge01);
 
-        // Prepara o corpo para receber o impulso
+        // Preparar corpo para receber impulso
         ballRb.isKinematic = false;
         ballRb.useGravity = true;
         ballRb.constraints = RigidbodyConstraints.None;
 
-        // Calcula direção: base olhando pro aro no plano XZ, com ajustes de yaw/pitch
-        float yaw = yawSlider ? yawSlider.value : 0f;
-        float pitch = pitchSlider ? pitchSlider.value : 35f;
+        // Reposiciona no spawn para consistência
+        if (ballSpawn) ballRb.transform.SetPositionAndRotation(ballSpawn.position, ballSpawn.rotation);
 
-        Vector3 toHoopFlat = hoopTarget
-            ? Vector3.ProjectOnPlane(hoopTarget.position - ballRb.position, Vector3.up).normalized
-            : Vector3.forward;
-
-        if (toHoopFlat.sqrMagnitude < 1e-6f) toHoopFlat = Vector3.forward;
-
-        float yawUsed = invertYaw ? -yaw : yaw;
-        Quaternion rot = Quaternion.LookRotation(toHoopFlat, Vector3.up) * Quaternion.Euler(-pitch, yawUsed, 0f);
-        Vector3 dir = rot * Vector3.forward;
-
-        // (opcional) reposiciona no spawn para tiros consistentes
-        ballRb.transform.SetPositionAndRotation(ballSpawn.position, ballSpawn.rotation);
+        // Direção do tiro
+        Vector3 dir = ComputeShotDirection(out Quaternion shotRot);
 
         // Zera velocidades (agora pode, pois não é kinematic)
         ballRb.linearVelocity = Vector3.zero;
         ballRb.angularVelocity = Vector3.zero;
 
         // Impulso
-        Debug.DrawRay(ballRb.position, dir.normalized * 3f, Color.red, 2f);
         ballRb.AddForce(dir.normalized * force, ForceMode.Impulse);
+
+        // Debug visível
+        if (showDebug)
+        {
+            DrawDirection(dir);
+            if (showTrajectory) DrawTrajectory(dir, force);
+            // Também funciona na Scene (ligar Gizmos na Game se quiser ver aqui)
+            Debug.DrawRay(ballRb.position, dir.normalized * dirLineLength, Color.red, 2f);
+        }
 
         // Limpa UI/estado
         UpdateForceText(0f);
@@ -121,7 +153,6 @@ public class ThrowController : MonoBehaviour
     {
         yield return new WaitForSeconds(autoResetDelay);
 
-        // Só reseta se a bola estiver quase parada ou tiver caído
         if (!ballRb) yield break;
 
         if (ballRb.linearVelocity.magnitude < 0.3f || ballRb.transform.position.y < fallY)
@@ -129,27 +160,116 @@ public class ThrowController : MonoBehaviour
             RespawnBall();
         }
         shotInProgress = false;
+        ClearLines();
     }
 
     void RespawnBall()
     {
         if (!ballRb || !ballSpawn) return;
 
-        // Garanta que NÃO está kinematic antes de mexer em velocidades
+        // Desliga kinematic para zerar velocidades com segurança
         ballRb.isKinematic = false;
         ballRb.useGravity = false;
         ballRb.constraints = RigidbodyConstraints.FreezeRotation;
 
-        // Zera velocidades
         ballRb.linearVelocity = Vector3.zero;
         ballRb.angularVelocity = Vector3.zero;
-
-        // Move para o ponto de spawn
         ballRb.transform.SetPositionAndRotation(ballSpawn.position, ballSpawn.rotation);
 
-        // Agora sim, deixa kinematic para "ficar paradinha"
+        // Agora congela de novo
         ballRb.isKinematic = true;
-        ballRb.Sleep(); // opcional, garante repouso
+        ballRb.Sleep();
+
+        ClearLines();
+    }
+
+    Vector3 ComputeShotDirection(out Quaternion shotRot)
+    {
+        // sliders 0..1 -> graus
+        float yaw01 = yawSlider ? yawSlider.value : 0f;
+        float pitch01 = pitchSlider ? pitchSlider.value : 0.5f;
+
+        float yawDeg = Mathf.Lerp(yawMin, yawMax, yaw01);
+        float pitchDeg = Mathf.Lerp(pitchMin, pitchMax, pitch01);
+        if (invertYaw) yawDeg = -yawDeg;
+
+        // base: direção horizontal para o aro (ou Z do mundo)
+        Vector3 baseForward;
+        if (useHoopAim && hoopTarget)
+        {
+            Vector3 toHoop = hoopTarget.position - (ballSpawn ? ballSpawn.position : transform.position);
+            baseForward = Vector3.ProjectOnPlane(toHoop, Vector3.up).normalized;
+        }
+        else baseForward = Vector3.forward;
+        if (baseForward.sqrMagnitude < 1e-6f) baseForward = Vector3.forward;
+
+        // 1) aplica yaw ao redor de Y
+        Vector3 yawed = Quaternion.AngleAxis(yawDeg, Vector3.up) * baseForward;
+
+        // 2) aplica pitch ao redor do eixo lateral (perp a Up e à direção yaw-ada)
+        Vector3 sideAxis = Vector3.Cross(Vector3.up, yawed).normalized;
+        Vector3 dir = Quaternion.AngleAxis(-pitchDeg, sideAxis) * yawed;
+
+        shotRot = Quaternion.LookRotation(dir, Vector3.up);
+        return dir.normalized;
+    }
+
+    // ---------- Debug / Preview ----------
+
+    LineRenderer CreateLine(string name, float width)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(transform, false);
+        var lr = go.AddComponent<LineRenderer>();
+        lr.positionCount = 0;
+        lr.widthMultiplier = width;
+        lr.numCapVertices = 4;
+        lr.numCornerVertices = 4;
+        lr.material = new Material(Shader.Find("Sprites/Default"));
+        lr.alignment = LineAlignment.View;
+        lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        lr.receiveShadows = false;
+        lr.useWorldSpace = true;
+        return lr;
+    }
+
+    void DrawDirection(Vector3 dir)
+    {
+        if (!showDebug || dirLine == null) return;
+        Vector3 start = ballSpawn ? ballSpawn.position : transform.position;
+        Vector3 end = start + dir.normalized * dirLineLength;
+        dirLine.positionCount = 2;
+        dirLine.SetPosition(0, start);
+        dirLine.SetPosition(1, end);
+    }
+
+    void DrawTrajectory(Vector3 dir, float force)
+    {
+        if (!showTrajectory || trajLine == null) return;
+        Vector3 start = ballSpawn ? ballSpawn.position : transform.position;
+
+        // Impulso → Δv = F / m
+        float mass = Mathf.Max(0.0001f, ballRb ? ballRb.mass : 1f);
+        Vector3 v0 = dir.normalized * (force / mass);
+        Vector3 g = Physics.gravity;
+
+        if (trajSteps < 2) trajSteps = 2;
+        if (trajTimeStep <= 0f) trajTimeStep = 0.02f;
+
+        trajLine.positionCount = trajSteps;
+        for (int i = 0; i < trajSteps; i++)
+        {
+            float t = i * trajTimeStep;
+            // s = s0 + v0 t + 0.5 g t^2
+            Vector3 p = start + v0 * t + 0.5f * g * (t * t);
+            trajLine.SetPosition(i, p);
+        }
+    }
+
+    void ClearLines()
+    {
+        if (dirLine) dirLine.positionCount = 0;
+        if (trajLine) trajLine.positionCount = 0;
     }
 
     void UpdateForceText(float f)
