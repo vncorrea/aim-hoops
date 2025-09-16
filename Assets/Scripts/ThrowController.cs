@@ -18,7 +18,7 @@ public class ThrowController : MonoBehaviour
     [Header("Força")]
     [SerializeField] private float minForce = 1f;
     [SerializeField] private float maxForce = 100f;
-    [SerializeField] private float chargeTime = 1.4f;
+    [SerializeField] private float chargeTime = 5.0f;
     [SerializeField] private TMP_Text forceText;
 
     [Header("Reset")]
@@ -274,6 +274,6 @@ public class ThrowController : MonoBehaviour
 
     void UpdateForceText(float f)
     {
-        if (forceText) forceText.text = $"Força: {f:0.0}";
+        if (forceText) forceText.text = f.ToString("F1");
     }
 }
