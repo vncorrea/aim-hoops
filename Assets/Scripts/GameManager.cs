@@ -1,12 +1,16 @@
 // Assets/Scripts/GameManager.cs
+using System;                // <-- ADICIONE
 using TMPro;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
-    [SerializeField] private TMP_Text scoreText;
 
+    // Dispara toda vez que pontua
+    public static event Action Scored;   // <-- NOVO
+
+    [SerializeField] private TMP_Text scoreText;
     private int score;
 
     void Awake()
@@ -19,6 +23,7 @@ public class GameManager : MonoBehaviour
     {
         score += amount;
         if (scoreText) scoreText.text = $"Pontos: {score}";
+        Scored?.Invoke();
     }
 
     public void ResetPoints()

@@ -36,6 +36,14 @@ public class ThrowController : MonoBehaviour
     [SerializeField] private int trajSteps = 40;
     [SerializeField] private float trajTimeStep = 0.05f;
 
+    [Header("Após pontuar")]
+    [SerializeField] private float returnDelayOnScore = 0.8f; // tempo pra deixar a câmera trocar antes de voltar a bola
+    
+    [Header("Acompanhar Câmera")]
+    [SerializeField] private Transform cameraTransform; // referência à câmera
+    [SerializeField] private Vector3 ballOffsetFromCamera = new Vector3(0f, -1f, 2f); // offset da bola em relação à câmera
+    [SerializeField] private bool followCamera = true; // se deve acompanhar a câmera
+
     // Linhas
     [SerializeField] private LineRenderer dirLine;     // seta de direção
     [SerializeField] private LineRenderer trajLine;    // trajetória
@@ -46,6 +54,11 @@ public class ThrowController : MonoBehaviour
     private float charge01; // 0..1
     private bool charging;
     private bool shotInProgress;
+    
+    // Para acompanhar a câmera
+    private Vector3 lastCameraPosition;
+    private Quaternion lastCameraRotation;
+    private bool cameraMoved;
 
     void Awake()
     {
@@ -56,6 +69,20 @@ public class ThrowController : MonoBehaviour
         dirLine.material.color = new Color(1f, 0.2f, 0.2f, 1f);   // vermelho
         trajLine.material.color = new Color(0.2f, 0.6f, 1f, 1f);  // azul
         ClearLines();
+        
+        // Setup automático da câmera se não arrastar no Inspector
+        if (cameraTransform == null && Camera.main != null) 
+            cameraTransform = Camera.main.transform;
+    }
+
+    void OnEnable()
+    {
+        GameManager.Scored += HandleScored;
+    }
+
+    void OnDisable()
+    {
+        GameManager.Scored -= HandleScored;
     }
 
     void Start()
@@ -65,6 +92,14 @@ public class ThrowController : MonoBehaviour
             chargeButton.OnPressed += StartCharge;
             chargeButton.OnReleased += ReleaseShot;
         }
+        
+        // Inicializa o acompanhamento da câmera
+        if (cameraTransform != null)
+        {
+            lastCameraPosition = cameraTransform.position;
+            lastCameraRotation = cameraTransform.rotation;
+        }
+        
         RespawnBall();
         UpdateForceText(0f);
     }
@@ -76,11 +111,17 @@ public class ThrowController : MonoBehaviour
             RespawnBall();
         }
 
+        // Verifica se a câmera se moveu e ajusta a posição da bola
+        if (followCamera && cameraTransform != null)
+        {
+            CheckCameraMovement();
+        }
+
         // Enquanto carrega, atualiza a seta/preview com a força atual
         if (charging && showDebug)
         {
             var forceNow = Mathf.Lerp(minForce, maxForce, charge01);
-            Vector3 dir = ComputeShotDirection(out Quaternion shotRot);
+            Vector3 dir = ComputeShotDirection(out Quaternion _);
             DrawDirection(dir);
             if (showTrajectory) DrawTrajectory(dir, forceNow);
         }
@@ -123,7 +164,7 @@ public class ThrowController : MonoBehaviour
         if (ballSpawn) ballRb.transform.SetPositionAndRotation(ballSpawn.position, ballSpawn.rotation);
 
         // Direção do tiro
-        Vector3 dir = ComputeShotDirection(out Quaternion shotRot);
+        Vector3 dir = ComputeShotDirection(out Quaternion _);
 
         // Zera velocidades (agora pode, pois não é kinematic)
         ballRb.linearVelocity = Vector3.zero;
@@ -137,7 +178,6 @@ public class ThrowController : MonoBehaviour
         {
             DrawDirection(dir);
             if (showTrajectory) DrawTrajectory(dir, force);
-            // Também funciona na Scene (ligar Gizmos na Game se quiser ver aqui)
             Debug.DrawRay(ballRb.position, dir.normalized * dirLineLength, Color.red, 2f);
         }
 
@@ -163,25 +203,115 @@ public class ThrowController : MonoBehaviour
         ClearLines();
     }
 
-    void RespawnBall()
+    // --- novo: responde ao evento de pontuação ---
+    // --- Troque no ThrowController ---
+
+    void HandleScored()
+    {
+        StopAllCoroutines();     // cancela charge/reset pendentes
+        charging = false;
+        StartCoroutine(ReturnAfter(returnDelayOnScore));
+    }
+    
+    // --- Acompanhar Câmera ---
+    
+    void CheckCameraMovement()
+    {
+        if (cameraTransform == null) return;
+        
+        Vector3 currentPos = cameraTransform.position;
+        Quaternion currentRot = cameraTransform.rotation;
+        
+        // Verifica se a câmera se moveu significativamente
+        float posThreshold = 0.01f;
+        float rotThreshold = 0.01f;
+        
+        bool posChanged = Vector3.Distance(currentPos, lastCameraPosition) > posThreshold;
+        bool rotChanged = Quaternion.Angle(currentRot, lastCameraRotation) > rotThreshold;
+        
+        if (posChanged || rotChanged)
+        {
+            cameraMoved = true;
+            lastCameraPosition = currentPos;
+            lastCameraRotation = currentRot;
+            
+            // Se a bola não está sendo usada (não está carregando nem em movimento), reposiciona
+            if (!charging && !shotInProgress && ballRb != null)
+            {
+                UpdateBallPositionToCamera();
+            }
+        }
+    }
+    
+    void UpdateBallPositionToCamera()
+    {
+        if (ballRb == null || cameraTransform == null) return;
+        
+        // Calcula a nova posição da bola baseada na câmera
+        Vector3 newBallPosition = cameraTransform.position + cameraTransform.TransformDirection(ballOffsetFromCamera);
+        
+        // Atualiza a posição de spawn para a nova posição
+        if (ballSpawn != null)
+        {
+            ballSpawn.position = newBallPosition;
+        }
+        
+        // Se a bola está em modo kinematic (pronta para arremesso), move ela também
+        if (ballRb.isKinematic)
+        {
+            ballRb.position = newBallPosition;
+        }
+    }
+
+    IEnumerator ReturnAfter(float d)
+    {
+        if (d > 0f) yield return new WaitForSeconds(d);
+        RespawnBall();
+        shotInProgress = false;
+        ClearLines();
+        UpdateForceText(0f);
+    }
+
+    [ContextMenu("Respawn Ball (Test)")]
+    public void RespawnBall()
     {
         if (!ballRb || !ballSpawn) return;
+        StartCoroutine(RespawnRoutine());
+    }
 
-        // Desliga kinematic para zerar velocidades com segurança
+    IEnumerator RespawnRoutine()
+    {
+        // 1) Evita contato no frame do teleporte
+        ballRb.detectCollisions = false;
+
+        // 2) Deixa DINÂMICO só pra conseguir zerar velocidades sem warnings
         ballRb.isKinematic = false;
         ballRb.useGravity = false;
         ballRb.constraints = RigidbodyConstraints.FreezeRotation;
 
-        ballRb.linearVelocity = Vector3.zero;
+        // 3) Zera velocidades agora (agora pode!)
+        ballRb.linearVelocity = Vector3.zero;   // ou ballRb.velocity = Vector3.zero;
         ballRb.angularVelocity = Vector3.zero;
-        ballRb.transform.SetPositionAndRotation(ballSpawn.position, ballSpawn.rotation);
 
-        // Agora congela de novo
+        // 4) Atualiza posição baseada na câmera se estiver seguindo
+        if (followCamera && cameraTransform != null)
+        {
+            UpdateBallPositionToCamera();
+        }
+
+        // 5) Volta pra Kinematic e teleporta
         ballRb.isKinematic = true;
-        ballRb.Sleep();
+        ballRb.position = ballSpawn.position;
+        ballRb.rotation = ballSpawn.rotation;
 
-        ClearLines();
+        // 6) Espera 1 frame pra física aceitar a nova pose
+        yield return null;
+
+        // 7) Reativa colisão e "adormece" o corpo
+        ballRb.detectCollisions = true;
+        ballRb.Sleep();
     }
+
 
     Vector3 ComputeShotDirection(out Quaternion shotRot)
     {
@@ -275,5 +405,43 @@ public class ThrowController : MonoBehaviour
     void UpdateForceText(float f)
     {
         if (forceText) forceText.text = f.ToString("F1");
+    }
+    
+    // --- Métodos públicos para ajuste ---
+    
+    /// <summary>
+    /// Ajusta o offset da bola em relação à câmera
+    /// </summary>
+    public void SetBallOffset(Vector3 newOffset)
+    {
+        ballOffsetFromCamera = newOffset;
+        if (followCamera && !charging && !shotInProgress)
+        {
+            UpdateBallPositionToCamera();
+        }
+    }
+    
+    /// <summary>
+    /// Liga/desliga o acompanhamento da câmera
+    /// </summary>
+    public void SetFollowCamera(bool follow)
+    {
+        followCamera = follow;
+        if (follow && cameraTransform != null)
+        {
+            lastCameraPosition = cameraTransform.position;
+            lastCameraRotation = cameraTransform.rotation;
+        }
+    }
+    
+    /// <summary>
+    /// Força a atualização da posição da bola baseada na câmera
+    /// </summary>
+    public void ForceUpdateBallPosition()
+    {
+        if (followCamera && cameraTransform != null)
+        {
+            UpdateBallPositionToCamera();
+        }
     }
 }
