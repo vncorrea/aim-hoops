@@ -2465,6 +2465,9 @@ MonoBehaviour:
   trajSteps: 40
   trajTimeStep: 0.05
   returnDelayOnScore: 0.8
+  cameraTransform: {fileID: 0}
+  ballOffsetFromCamera: {x: 0, y: -1, z: 2}
+  followCamera: 1
   dirLine: {fileID: 0}
   trajLine: {fileID: 0}
   yawMin: -60
@@ -4412,7 +4415,7 @@ Transform:
   m_GameObject: {fileID: 1664939326}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.36, y: 0, z: 2.03}
+  m_LocalPosition: {x: -0.15, y: 1.45, z: 2.03}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5099,7 +5102,7 @@ Transform:
   m_GameObject: {fileID: 1874359192}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.24, y: 0, z: -2.72}
+  m_LocalPosition: {x: 1.22, y: 1.4, z: -2.72}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5473,7 +5476,7 @@ Transform:
   m_GameObject: {fileID: 2036755912}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.97, y: 0, z: -0.08}
+  m_LocalPosition: {x: -0.96, y: 1.46, z: -0.08}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5504,7 +5507,7 @@ Transform:
   m_GameObject: {fileID: 2044170840}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.43, y: 0, z: 2.97}
+  m_LocalPosition: {x: 3.32, y: 1.38, z: 2.97}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
