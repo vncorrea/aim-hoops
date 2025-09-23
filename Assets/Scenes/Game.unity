@@ -3168,6 +3168,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Predio Frente Direita
       objectReference: {fileID: 0}
+    - target: {fileID: 5720013252100257546, guid: c003e24639b7949cf8abbaaf6ba7f4c5, type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6080261707875866335, guid: c003e24639b7949cf8abbaaf6ba7f4c5, type: 3}
       propertyPath: m_Enabled
       value: 1
