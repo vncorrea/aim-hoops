@@ -33,8 +33,10 @@ public class ThrowController : MonoBehaviour
 
     [Header("Preview Trajetória")]
     [SerializeField] private bool showTrajectory = true;
+    [SerializeField] private bool showContinuousPreview = true; // nova opção para preview contínuo
     [SerializeField] private int trajSteps = 40;
     [SerializeField] private float trajTimeStep = 0.05f;
+    [SerializeField] private float previewForce = 50f; // força fixa para o preview contínuo
 
     [Header("Após pontuar")]
     [SerializeField] private float returnDelayOnScore = 0.8f; // tempo pra deixar a câmera trocar antes de voltar a bola
@@ -54,6 +56,10 @@ public class ThrowController : MonoBehaviour
     private float charge01; // 0..1
     private bool charging;
     private bool shotInProgress;
+    
+    // Para preview contínuo
+    private float lastYawValue = -1f;
+    private float lastPitchValue = -1f;
     
     // Para acompanhar a câmera
     private Vector3 lastCameraPosition;
@@ -93,6 +99,18 @@ public class ThrowController : MonoBehaviour
             chargeButton.OnReleased += ReleaseShot;
         }
         
+        // Configura eventos dos sliders para preview contínuo
+        if (yawSlider != null)
+        {
+            yawSlider.onValueChanged.AddListener(OnSliderValueChanged);
+            lastYawValue = yawSlider.value;
+        }
+        if (pitchSlider != null)
+        {
+            pitchSlider.onValueChanged.AddListener(OnSliderValueChanged);
+            lastPitchValue = pitchSlider.value;
+        }
+        
         // Inicializa o acompanhamento da câmera
         if (cameraTransform != null)
         {
@@ -102,6 +120,12 @@ public class ThrowController : MonoBehaviour
         
         RespawnBall();
         UpdateForceText(0f);
+        
+        // Mostra preview inicial
+        if (showContinuousPreview && showDebug)
+        {
+            UpdateContinuousPreview();
+        }
     }
 
     void Update()
@@ -117,13 +141,18 @@ public class ThrowController : MonoBehaviour
             CheckCameraMovement();
         }
 
-        // Enquanto carrega, atualiza a seta/preview com a força atual
+        // Enquanto carrega, atualiza o preview com a força atual
         if (charging && showDebug)
         {
             var forceNow = Mathf.Lerp(minForce, maxForce, charge01);
             Vector3 dir = ComputeShotDirection(out Quaternion _);
-            DrawDirection(dir);
+            // Removido DrawDirection(dir) - só mostra a trajetória azul
             if (showTrajectory) DrawTrajectory(dir, forceNow);
+        }
+        // Se não está carregando mas tem preview contínuo ativo, mostra preview com força padrão
+        else if (!charging && showContinuousPreview && showDebug)
+        {
+            UpdateContinuousPreview();
         }
     }
 
@@ -176,7 +205,7 @@ public class ThrowController : MonoBehaviour
         // Debug visível
         if (showDebug)
         {
-            DrawDirection(dir);
+            // Removido DrawDirection(dir) - só mostra a trajetória azul
             if (showTrajectory) DrawTrajectory(dir, force);
             Debug.DrawRay(ballRb.position, dir.normalized * dirLineLength, Color.red, 2f);
         }
@@ -200,7 +229,7 @@ public class ThrowController : MonoBehaviour
             RespawnBall();
         }
         shotInProgress = false;
-        ClearLines();
+        ClearLinesIfNotContinuous();
     }
 
     // --- novo: responde ao evento de pontuação ---
@@ -268,7 +297,7 @@ public class ThrowController : MonoBehaviour
         if (d > 0f) yield return new WaitForSeconds(d);
         RespawnBall();
         shotInProgress = false;
-        ClearLines();
+        ClearLinesIfNotContinuous();
         UpdateForceText(0f);
     }
 
@@ -312,6 +341,26 @@ public class ThrowController : MonoBehaviour
         ballRb.Sleep();
     }
 
+
+    // --- Preview Contínuo ---
+    
+    void OnSliderValueChanged(float value)
+    {
+        // Só atualiza se não está carregando ou em movimento
+        if (!charging && !shotInProgress && showContinuousPreview && showDebug)
+        {
+            UpdateContinuousPreview();
+        }
+    }
+    
+    void UpdateContinuousPreview()
+    {
+        if (!showDebug) return;
+        
+        Vector3 dir = ComputeShotDirection(out Quaternion _);
+        // Removido DrawDirection(dir) - só mostra a trajetória azul
+        if (showTrajectory) DrawTrajectory(dir, previewForce);
+    }
 
     Vector3 ComputeShotDirection(out Quaternion shotRot)
     {
@@ -401,6 +450,20 @@ public class ThrowController : MonoBehaviour
         if (dirLine) dirLine.positionCount = 0;
         if (trajLine) trajLine.positionCount = 0;
     }
+    
+    void ClearLinesIfNotContinuous()
+    {
+        // Só limpa se o preview contínuo não estiver ativo
+        if (!showContinuousPreview)
+        {
+            ClearLines();
+        }
+        else if (showDebug)
+        {
+            // Se preview contínuo está ativo, atualiza com os valores atuais
+            UpdateContinuousPreview();
+        }
+    }
 
     void UpdateForceText(float f)
     {
@@ -442,6 +505,34 @@ public class ThrowController : MonoBehaviour
         if (followCamera && cameraTransform != null)
         {
             UpdateBallPositionToCamera();
+        }
+    }
+    
+    /// <summary>
+    /// Liga/desliga o preview contínuo da trajetória
+    /// </summary>
+    public void SetContinuousPreview(bool enable)
+    {
+        showContinuousPreview = enable;
+        if (enable && showDebug)
+        {
+            UpdateContinuousPreview();
+        }
+        else if (!enable)
+        {
+            ClearLines();
+        }
+    }
+    
+    /// <summary>
+    /// Define a força usada no preview contínuo
+    /// </summary>
+    public void SetPreviewForce(float force)
+    {
+        previewForce = Mathf.Clamp(force, minForce, maxForce);
+        if (showContinuousPreview && showDebug)
+        {
+            UpdateContinuousPreview();
         }
     }
 }
