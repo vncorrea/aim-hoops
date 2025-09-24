@@ -102,8 +102,6 @@ public class TimerController : MonoBehaviour
             
             // Garante que não passe do tempo máximo (opcional)
             // currentTime = Mathf.Min(currentTime, initialTime * 2f); // máximo 2x o tempo inicial
-            
-            Debug.Log($"Tempo adicionado! Novo tempo: {currentTime:F1}s");
         }
     }
     
@@ -114,7 +112,6 @@ public class TimerController : MonoBehaviour
         gameOverShown = true;
         isGameActive = false;
         
-        Debug.Log("ACABOU O TEMPO!");
         
         // Mostra a mensagem de game over
         ShowGameOverMessage();
@@ -139,7 +136,6 @@ public class TimerController : MonoBehaviour
     
     void ReturnToMenu()
     {
-        Debug.Log("Voltando para o menu...");
         
         // Tenta carregar por nome primeiro
         if (!string.IsNullOrEmpty(menuSceneName))
@@ -162,8 +158,6 @@ public class TimerController : MonoBehaviour
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"Não foi possível carregar a cena com índice {menuSceneIndex}: {e.Message}");
-            Debug.LogError("Verifique se as cenas estão adicionadas ao Build Settings!");
         }
     }
     

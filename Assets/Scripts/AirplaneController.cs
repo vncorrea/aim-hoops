@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class AirplaneController : MonoBehaviour
 {
@@ -22,8 +23,17 @@ public class AirplaneController : MonoBehaviour
     [SerializeField] private float fallRotationSpeed = 5f;
     [SerializeField] private float destroyAfterFall = 5f;
     
+    [Header("Sistema de Vitória")]
+    [SerializeField] private bool showVictoryMessage = true;
+    [SerializeField] private float victoryDisplayTime = 3f; // tempo para mostrar "VOCÊ GANHOU!"
+    [SerializeField] private string menuSceneName = "Menu"; // nome da cena do menu
+    [SerializeField] private int menuSceneIndex = 0; // índice da cena do menu
+    [SerializeField] private TMPro.TMP_Text gameOverText; // mesmo texto usado no TimerController
+    [SerializeField] private GameObject gameOverPanel; // mesmo painel usado no TimerController
+    
     private bool isMoving = false;
     private bool isFalling = false;
+    private bool victoryShown = false;
     private Vector3 initialPosition;
     private Rigidbody rb;
     
@@ -99,8 +109,22 @@ public class AirplaneController : MonoBehaviour
     
     void OnTriggerEnter(Collider other)
     {
+        
         // Verifica se foi atingido pela bola de basquete
         if (canBeHit && other.CompareTag("Ball") && !isFalling)
+        {
+            HitByBall();
+        }
+        else
+        {
+        }
+    }
+    
+    void OnCollisionEnter(Collision collision)
+    {
+        
+        // Verifica se foi atingido pela bola de basquete (colisão física)
+        if (canBeHit && collision.gameObject.CompareTag("Ball") && !isFalling)
         {
             HitByBall();
         }
@@ -108,7 +132,9 @@ public class AirplaneController : MonoBehaviour
     
     void HitByBall()
     {
-        Debug.Log("Avião atingido pela bola!");
+        if (victoryShown) return; // Evita múltiplas execuções
+        
+        victoryShown = true;
         
         // Para o movimento normal
         isMoving = false;
@@ -125,10 +151,62 @@ public class AirplaneController : MonoBehaviour
             rb.AddForce(impactForce, ForceMode.Impulse);
         }
         
-        // Destrói o avião após um tempo
-        if (destroyAfterFall > 0f)
+        // Mostra mensagem de vitória
+        if (showVictoryMessage)
         {
-            Destroy(gameObject, destroyAfterFall);
+            ShowVictoryMessage();
+        }
+        
+        // Volta para o menu após um tempo
+        Invoke(nameof(ReturnToMenu), victoryDisplayTime);
+    }
+    
+    void ShowVictoryMessage()
+    {
+        
+        // Usa o mesmo sistema do TimerController
+        if (gameOverText != null)
+        {
+            gameOverText.text = "VOCÊ GANHOU!";
+            gameOverText.gameObject.SetActive(true);
+        }
+        else
+        {
+            Debug.LogWarning("GameOverText não configurado no AirplaneController!");
+        }
+        
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+        }
+    }
+    
+    void ReturnToMenu()
+    {
+        
+        // Tenta carregar por nome primeiro
+        if (!string.IsNullOrEmpty(menuSceneName))
+        {
+            try
+            {
+                SceneManager.LoadScene(menuSceneName);
+                return;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"Não foi possível carregar a cena '{menuSceneName}': {e.Message}");
+            }
+        }
+        
+        // Se falhar, tenta carregar por índice
+        try
+        {
+            SceneManager.LoadScene(menuSceneIndex);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Não foi possível carregar a cena com índice {menuSceneIndex}: {e.Message}");
+            Debug.LogError("Verifique se as cenas estão adicionadas ao Build Settings!");
         }
     }
     
@@ -191,6 +269,7 @@ public class AirplaneController : MonoBehaviour
         // Para a queda e reseta o avião
         isFalling = false;
         isMoving = false;
+        victoryShown = false;
         
         if (rb != null)
         {
@@ -209,5 +288,12 @@ public class AirplaneController : MonoBehaviour
         {
             StartMovement();
         }
+    }
+    
+    // Método para testar manualmente (botão no Inspector)
+    [ContextMenu("Test Hit By Ball")]
+    public void TestHitByBall()
+    {
+        HitByBall();
     }
 }
