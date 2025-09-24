@@ -16,14 +16,30 @@ public class AirplaneController : MonoBehaviour
     [SerializeField] private bool rotateWithMovement = true;
     [SerializeField] private float rotationSpeed = 2f;
     
+    [Header("Sistema de Queda")]
+    [SerializeField] private bool canBeHit = true;
+    [SerializeField] private float fallSpeed = 10f;
+    [SerializeField] private float fallRotationSpeed = 5f;
+    [SerializeField] private float destroyAfterFall = 5f;
+    
     private bool isMoving = false;
+    private bool isFalling = false;
     private Vector3 initialPosition;
+    private Rigidbody rb;
     
     void Start()
     {
         // Salva a posição inicial
         initialPosition = transform.position;
         startPosition = initialPosition;
+        
+        // Pega o Rigidbody (adiciona se não existir)
+        rb = GetComponent<Rigidbody>();
+        if (rb == null)
+        {
+            rb = gameObject.AddComponent<Rigidbody>();
+            rb.isKinematic = true; // Começa kinematic para não cair
+        }
         
         // Inicia o movimento se configurado
         if (moveOnStart)
@@ -34,7 +50,11 @@ public class AirplaneController : MonoBehaviour
     
     void Update()
     {
-        if (isMoving)
+        if (isFalling)
+        {
+            HandleFalling();
+        }
+        else if (isMoving)
         {
             MoveForward();
             
@@ -67,6 +87,48 @@ public class AirplaneController : MonoBehaviour
         {
             // Reseta para a posição inicial
             transform.position = startPosition;
+        }
+    }
+    
+    void HandleFalling()
+    {
+        // Adiciona rotação durante a queda
+        transform.Rotate(Vector3.forward, fallRotationSpeed * Time.deltaTime);
+        transform.Rotate(Vector3.right, fallRotationSpeed * 0.5f * Time.deltaTime);
+    }
+    
+    void OnTriggerEnter(Collider other)
+    {
+        // Verifica se foi atingido pela bola de basquete
+        if (canBeHit && other.CompareTag("Ball") && !isFalling)
+        {
+            HitByBall();
+        }
+    }
+    
+    void HitByBall()
+    {
+        Debug.Log("Avião atingido pela bola!");
+        
+        // Para o movimento normal
+        isMoving = false;
+        isFalling = true;
+        
+        // Ativa a física para o avião cair
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.useGravity = true;
+            
+            // Adiciona um pouco de força para simular o impacto
+            Vector3 impactForce = Vector3.down * fallSpeed + Random.insideUnitSphere * 2f;
+            rb.AddForce(impactForce, ForceMode.Impulse);
+        }
+        
+        // Destrói o avião após um tempo
+        if (destroyAfterFall > 0f)
+        {
+            Destroy(gameObject, destroyAfterFall);
         }
     }
     
@@ -103,5 +165,49 @@ public class AirplaneController : MonoBehaviour
         direction = (endPos - startPos).normalized;
         speed = flightSpeed;
         transform.position = startPos;
+    }
+    
+    // Métodos para controle da queda
+    public void ForceFall()
+    {
+        if (!isFalling)
+        {
+            HitByBall();
+        }
+    }
+    
+    public void SetCanBeHit(bool canHit)
+    {
+        canBeHit = canHit;
+    }
+    
+    public bool IsFalling()
+    {
+        return isFalling;
+    }
+    
+    public void RespawnAirplane()
+    {
+        // Para a queda e reseta o avião
+        isFalling = false;
+        isMoving = false;
+        
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+        
+        // Reseta posição e rotação
+        transform.position = startPosition;
+        transform.rotation = Quaternion.identity;
+        
+        // Reinicia o movimento
+        if (moveOnStart)
+        {
+            StartMovement();
+        }
     }
 }
