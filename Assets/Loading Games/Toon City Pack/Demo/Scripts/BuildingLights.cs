@@ -1,22 +1,53 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-public class BuildingLights : MonoBehaviour {
-    public int windowMaterialIndex;
-    public Color lightColor;
-    public bool areLightsOn;
-    private Color defaultColor;
-    private MeshRenderer mr;
+[RequireComponent(typeof(MeshRenderer))]
+public class BuildingLights_Emissive : MonoBehaviour
+{
+    public int windowMaterialIndex = 0;
+    public Color lightColor = new Color(1f, 0.85f, 0.6f);
+    public bool areLightsOn = true;
 
-    private void Start() {
+    private MeshRenderer mr;
+    private Color baseColor;
+
+    void Awake()
+    {
         mr = GetComponent<MeshRenderer>();
-        defaultColor = mr.materials[windowMaterialIndex].color;
+    }
+
+    void Start()
+    {
+        // pega _BaseColor (URP) em vez de material.color
+        var mat = mr.materials[windowMaterialIndex];
+        baseColor = mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") : Color.white;
         SetLights(areLightsOn);
     }
 
-    public void SetLights(bool isOn) {
-        mr.materials[windowMaterialIndex].shader = isOn ? Shader.Find("Unlit/Color") : Shader.Find("Standard");
-        mr.materials[windowMaterialIndex].color = isOn ? lightColor : defaultColor;
+    public void SetLights(bool isOn)
+    {
+        var mats = mr.materials;                  // instancia (ok se quer por instância)
+        var m = mats[windowMaterialIndex];
+
+        // garante URP/Lit
+        if (m.shader.name != "Universal Render Pipeline/Lit")
+            m.shader = Shader.Find("Universal Render Pipeline/Lit");
+
+        // Base color mantém o tom do vidro
+        m.SetColor("_BaseColor", baseColor);
+
+        if (isOn)
+        {
+            m.EnableKeyword("_EMISSION");
+            m.SetColor("_EmissionColor", lightColor);
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+        }
+        else
+        {
+            m.SetColor("_EmissionColor", Color.black);
+            m.DisableKeyword("_EMISSION");
+        }
+
+        mr.materials = mats;
+        RendererExtensions.UpdateGIMaterials(mr);            // atualiza GI em tempo real
     }
 }
