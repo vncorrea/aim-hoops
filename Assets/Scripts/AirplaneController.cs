@@ -205,8 +205,6 @@ public class AirplaneController : MonoBehaviour
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"Não foi possível carregar a cena com índice {menuSceneIndex}: {e.Message}");
-            Debug.LogError("Verifique se as cenas estão adicionadas ao Build Settings!");
         }
     }
     

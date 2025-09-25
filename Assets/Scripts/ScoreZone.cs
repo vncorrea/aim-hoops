@@ -24,12 +24,10 @@ public class ScoreZone : MonoBehaviour
         // Única verificação: A bola deve estar descendo (velocidade Y negativa)
         if (ballRb.linearVelocity.y >= 0f) 
         {
-            Debug.Log($"ScoreZone: Bola subindo (velY: {ballRb.linearVelocity.y:F2}) - não conta");
             return false;
         }
         
         // Se chegou até aqui, a bola está descendo = ponto válido!
-        Debug.Log($"ScoreZone: PONTO VÁLIDO! Bola descendo (velY: {ballRb.linearVelocity.y:F2})");
         return true;
     }
 

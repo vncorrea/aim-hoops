@@ -147,7 +147,6 @@ public class TimerController : MonoBehaviour
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning($"Não foi possível carregar a cena '{menuSceneName}': {e.Message}");
             }
         }
         
@@ -167,7 +166,6 @@ public class TimerController : MonoBehaviour
         if (isGameActive)
         {
             currentTime += timeToAdd;
-            Debug.Log($"Tempo adicionado manualmente: {timeToAdd}s. Novo tempo: {currentTime:F1}s");
         }
     }
     

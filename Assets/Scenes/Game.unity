@@ -1802,7 +1802,7 @@ PrefabInstance:
       addedObject: {fileID: 1125050828}
     - targetCorrespondingSourceObject: {fileID: 485164579804266847, guid: c9c12470297994551b5702a743896814, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1125050829}
+      addedObject: {fileID: 1125050833}
   m_SourcePrefab: {fileID: 100100000, guid: c9c12470297994551b5702a743896814, type: 3}
 --- !u!1001 &478413771
 PrefabInstance:
@@ -3799,8 +3799,8 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!65 &1125050829
-BoxCollider:
+--- !u!64 &1125050833
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -3817,9 +3817,10 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 18.166756, y: 6.0334945, z: 22.652092}
-  m_Center: {x: 0, y: 3.0770586, z: 0.0043172836}
+  serializedVersion: 5
+  m_Convex: 1
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -2692262787941324845, guid: 234ecb5e580914f2a9c16496d5917d1e, type: 3}
 --- !u!1001 &1136396701
 PrefabInstance:
   m_ObjectHideFlags: 0
